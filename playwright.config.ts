@@ -9,6 +9,11 @@ import { defineConfig, devices } from '@playwright/test';
 const adminUrl = process.env.ADMIN_URL || 'https://admin.burdenoff.com';
 const graphqlUrl = process.env.GRAPHQL_URL || 'https://alphagraphql.burdenoff.com/global/graphql';
 
+// Expose resolved URLs to tests via process.env (Playwright ignores the
+// top-level `env` key, so we set it explicitly here).
+process.env.ADMIN_URL = adminUrl;
+process.env.GRAPHQL_URL = graphqlUrl;
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
@@ -40,7 +45,4 @@ export default defineConfig({
         timeout: 120_000,
       }
     : undefined,
-  env: {
-    GRAPHQL_URL: graphqlUrl,
-  },
 });

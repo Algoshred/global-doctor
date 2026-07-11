@@ -16,9 +16,17 @@ test.describe('global admin smoke', () => {
   test('global GraphQL gateway responds to OPTIONS', async ({ request }) => {
     const url = process.env.GRAPHQL_URL;
     if (!url) {
-      test.skip('GRAPHQL_URL not configured');
+      throw new Error('GRAPHQL_URL not configured');
     }
-    const response = await request.fetch(url!, { method: 'OPTIONS' });
-    expect([200, 204, 405]).toContain(response.status());
+    // Send a real CORS preflight request so the gateway handles it as OPTIONS.
+    const response = await request.fetch(url, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: process.env.ADMIN_URL || 'https://admin.burdenoff.com',
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'Content-Type',
+      },
+    });
+    expect([200, 204]).toContain(response.status());
   });
 });
