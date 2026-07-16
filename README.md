@@ -1,30 +1,23 @@
 # global-doctor
 
-End-to-end diagnostic suite for the `global` (tenant / platform control plane) product.
+Backend E2E diagnostic suite for the `global` (tenant / platform control plane) product.
 
 ## Scope
 
-- Admin console (`admin.burdenoff.com`) critical paths: login, tenant list, billing, notifications.
-- Global GraphQL gateway smoke tests.
+- Global GraphQL gateway smoke tests and platform service health checks.
 - Cross-product platform flows that live in `global-*-svc`.
+
+This repo is **backend-only**. Playwright UI tests for the admin console or other
+frontends live in the corresponding app/website/microfe repos.
 
 ## Quick start
 
 ```bash
 cd ~/products/global/global-doctor
-bun install
-bun run setup          # install Playwright browsers
-bun run test           # run the suite against alpha
+make test              # run backend E2E tests when defined
 ```
-
-## Environment variables
-
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `ADMIN_URL` | `https://admin.burdenoff.com` | Base URL of the admin app shell |
-| `GRAPHQL_URL` | `https://alphagraphql.burdenoff.com/global/graphql` | Global GraphQL gateway |
-| `SERVE_LOCAL` | unset | Set to `1` to start the local `admin-app` dev server |
 
 ## Status
 
-Scaffold created. Full tenant bootstrap, billing signup, and admin console flows are TODO.
+Backend shell-test scaffold. Add per-service bash test scripts under this repo
+and wire them into the `Makefile`.

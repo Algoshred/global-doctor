@@ -1,20 +1,10 @@
 {
   "name": "@burdenoff/global-doctor",
   "version": "0.0.0-dev",
-  "description": "End-to-end doctor for the global / tenant control plane",
+  "description": "Backend E2E doctor for the global / tenant control plane",
   "type": "module",
   "private": true,
-  "scripts": {
-    "setup": "playwright install chromium",
-    "test": "playwright test",
-    "test:headed": "playwright test --headed",
-    "test:debug": "playwright test --debug",
-    "test:ui": "playwright test --ui",
-    "report": "playwright show-report"
-  },
-  "devDependencies": {
-    "@playwright/test": "^1.51.0"
-  },
+  "scripts": {},
   "engines": {
     "bun": ">=1.3.10"
   }
