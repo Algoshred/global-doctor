@@ -3,3 +3,8 @@ node_modules/
 .env.local
 *.log
 .DS_Store
+
+# E2E logs and generated environment (contains live tokens/secrets)
+logs/
+core/env/*.sh
+!core/env/.gitkeep
