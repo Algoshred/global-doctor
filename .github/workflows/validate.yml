@@ -1,0 +1,99 @@
+name: Validate
+
+# global-doctor had no `.github` directory at all until this workflow, so its
+# CRUDL + auth/tenant/rbac module suites only ever proved value when someone
+# ran `make test-all` by hand — zero continuous signal against regressions in
+# the doctor itself (same gap class as the subscriberbot-doctor / vibecontrols-
+# doctor / artistrybase-doctor `validate-scripts` jobs).
+#
+# Unlike those product doctors, global-doctor's harness only targets the
+# local dev stack today (core/scripts/common.sh has no alpha/CF-Access target
+# switch) — see the Makefile header ("Prerequisite: the global dev stack must
+# already be running"). So this workflow is syntax/lint validation only: it
+# catches a broken Makefile target, a shell typo, or an unbound-variable
+# regression in the suite scripts on every push/PR, without requiring any
+# secrets or live alpha connectivity. Wiring a real `e2e-alpha` job (like the
+# product-doctor repos have) is a separate, larger follow-up that needs
+# common.sh extended with CF Access headers + an alpha gateway target first.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC - catch bit-rot in the suite
+  workflow_dispatch: {}
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-scripts:
+    name: Validate suite (syntax + shellcheck)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: bash -n syntax check
+        run: |
+          set -euo pipefail
+          fail=0
+          while IFS= read -r -d '' f; do
+            if ! bash -n "$f"; then
+              echo "::error file=$f::bash syntax error"
+              fail=1
+            fi
+          done < <(find . -path ./node_modules -prune -o -name '*.sh' -type f -print0)
+          exit "$fail"
+
+      - name: shellcheck
+        run: |
+          set -euo pipefail
+          # shellcheck is pre-installed on ubuntu-latest runners.
+          # -e SC1091: `source` targets (core/env/e2e-env.sh) are generated at
+          #   runtime by bootstrap-env.sh and don't exist in a fresh checkout.
+          mapfile -d '' files < <(find . -path ./node_modules -prune -o -name '*.sh' -type f -print0)
+          shellcheck --severity=error --exclude=SC1091 "${files[@]}"
+
+      - name: Validate Makefile targets
+        run: |
+          set -euo pipefail
+          # This intentionally does NOT use `make -n/-q/-t <target>`. Per GNU
+          # Make's documented behavior, a recipe line containing a
+          # $(MAKE)/${MAKE} reference is ALWAYS executed for real, even under
+          # -n (dry-run), -q (question) or -t (touch) - none of those flags
+          # suppress it. `test-modules`/`test-all` recurse via
+          # `$(MAKE) -C $(MODULES_DIR) ...`, and modules/Makefile's own
+          # `test-all` shells out to `$(MAKE) test-$$suite` per suite - both
+          # would actually run the (env-dependent, network-calling) suites
+          # under a naive dry-run.
+          #
+          # Instead ask make to print its parsed internal database (`-p`) and
+          # grep it for the target definitions. `-p` never executes any
+          # target-specific recipe on its own; make only builds its implicit
+          # default goal (the harmless `help` target, which just echoes usage
+          # text), so this proves the targets exist and are syntactically
+          # valid without ever touching the dangerous recursive recipes.
+          db="$(make -p -f Makefile 2>/dev/null || true)"
+          fail=0
+          for target in test test-crudl test-modules test-all bootstrap-env teardown-env; do
+            if ! grep -qE "^${target}:" <<<"$db"; then
+              echo "::error::Makefile target '${target}' not found (expected a '${target}:' rule in \`make -p\` output)"
+              fail=1
+            fi
+          done
+
+          modules_db="$(cd modules && make -p -f Makefile 2>/dev/null || true)"
+          for target in test-all test-auth test-tenant test-rbac; do
+            if ! grep -qE "^${target}:" <<<"$modules_db"; then
+              echo "::error::modules/Makefile target '${target}' not found (expected a '${target}:' rule in \`make -p\` output)"
+              fail=1
+            fi
+          done
+          exit "$fail"
